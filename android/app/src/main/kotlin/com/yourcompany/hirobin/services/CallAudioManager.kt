@@ -175,26 +175,57 @@ object CallAudioManager {
         val chunkSize = CAPTURE_SAMPLE_RATE * 2 * CHUNK_MS / 1000  // bytes: 16-bit = 2 bytes/sample
         val bufferSize = maxOf(minBuf, chunkSize * 4)
 
-        val recorder = AudioRecord(
-            MediaRecorder.AudioSource.VOICE_CALL,  // captures both sides of a cellular call
-            CAPTURE_SAMPLE_RATE,
-            CHANNEL_IN,
-            ENCODING,
-            bufferSize
-        )
+        // Try audio sources in preference order:
+        //   VOICE_CALL          — both sides of a cellular call; requires CAPTURE_AUDIO_OUTPUT
+        //                         (privileged), so will fail on most non-rooted devices
+        //   VOICE_COMMUNICATION — local mic in VoIP mode; available to all apps; may give
+        //                         silence during cellular calls but is the safest fallback
+        //   MIC                 — raw mic; always available
+        val sourceCandidates = buildList {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                add(MediaRecorder.AudioSource.VOICE_CALL)
+            }
+            add(MediaRecorder.AudioSource.VOICE_COMMUNICATION)
+            add(MediaRecorder.AudioSource.MIC)
+        }
 
-        if (recorder.state != AudioRecord.STATE_INITIALIZED) {
-            recorder.release()
-            CallEventBus.onAudioStateChanged("error", "AudioRecord failed to initialise")
+        var recorder: AudioRecord? = null
+        var usedSource = -1
+        for (source in sourceCandidates) {
+            val candidate = try {
+                AudioRecord(source, CAPTURE_SAMPLE_RATE, CHANNEL_IN, ENCODING, bufferSize)
+            } catch (e: Exception) {
+                Log.w(TAG, "AudioSource $source threw ${e.javaClass.simpleName}, skipping")
+                continue
+            }
+            if (candidate.state == AudioRecord.STATE_INITIALIZED) {
+                recorder = candidate
+                usedSource = source
+                break
+            } else {
+                Log.w(TAG, "AudioSource $source: state=${candidate.state} (not initialized), skipping")
+                candidate.release()
+            }
+        }
+
+        if (recorder == null) {
+            CallEventBus.onAudioStateChanged("error", "AudioRecord failed to initialise with any source")
             return
         }
 
-        Log.d(TAG, "AudioRecord config — sampleRate=$CAPTURE_SAMPLE_RATE Hz, " +
+        val sourceName = when (usedSource) {
+            MediaRecorder.AudioSource.VOICE_CALL -> "VOICE_CALL"
+            MediaRecorder.AudioSource.VOICE_COMMUNICATION -> "VOICE_COMMUNICATION"
+            MediaRecorder.AudioSource.MIC -> "MIC"
+            else -> "$usedSource"
+        }
+        Log.d(TAG, "AudioRecord ready — source=$sourceName, sampleRate=$CAPTURE_SAMPLE_RATE Hz, " +
                 "encoding=${if (ENCODING == AudioFormat.ENCODING_PCM_16BIT) "PCM_16BIT" else ENCODING}, " +
-                "chunkSize=$chunkSize bytes")
+                "chunkSize=$chunkSize bytes, state=${recorder.state}")
 
         audioRecord = recorder
         recorder.startRecording()
+        Log.d(TAG, "AudioRecord started — recordingState=${recorder.recordingState}")
         CallEventBus.onAudioStateChanged("started", null)
 
         captureJob = scope.launch {

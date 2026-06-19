@@ -8,6 +8,12 @@
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
 
+    <!-- Required for AudioSource.VOICE_CALL (both-sides call capture).
+         This is a privileged/signature permission — granted automatically on rooted
+         devices or custom ROMs; silently denied on standard consumer devices.
+         Declaring it here causes no harm and enables the feature where available. -->
+    <uses-permission android:name="android.permission.CAPTURE_AUDIO_OUTPUT" />
+
     <!-- Show ongoing call notification (required on Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
