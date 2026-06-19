@@ -255,6 +255,7 @@ object CallAudioManager {
                 AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .setLegacyStreamType(AudioManager.STREAM_VOICE_CALL)
                     .build()
             )
             .setAudioFormat(

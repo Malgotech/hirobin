@@ -38,11 +38,12 @@ class HiRobinInCallService : InCallService() {
             if (call.state == Call.STATE_RINGING || call.state == Call.STATE_NEW) {
                 call.answer(VideoProfile.STATE_AUDIO_ONLY)
 
-                // Route the caller's voice to the speaker so the MIC can capture
-                // both sides of the call via acoustic loopback.
+                // MODE_IN_CALL routes AudioTrack output into the cellular uplink so
+                // the caller hears Robin's TTS. Earpiece kept on (no speakerphone)
+                // so MIC captures only the local user, not acoustic feedback.
                 val am = getSystemService(AudioManager::class.java)
-                am?.mode = AudioManager.MODE_IN_COMMUNICATION
-                am?.isSpeakerphoneOn = true
+                am?.mode = AudioManager.MODE_IN_CALL
+                am?.isSpeakerphoneOn = false
 
                 am?.let { CallAudioManager.startStreaming(it) }
             }
