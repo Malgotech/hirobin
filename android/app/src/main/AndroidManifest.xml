@@ -94,6 +94,18 @@
             </intent-filter>
         </activity>
 
+        <service
+            android:name=".HiRobinInCallService"
+            android:exported="true"
+            android:permission="android.permission.BIND_INCALL_SERVICE">
+            <meta-data
+                android:name="android.telecom.IN_CALL_SERVICE_UI"
+                android:value="true" />
+            <intent-filter>
+                <action android:name="android.telecom.InCallService" />
+            </intent-filter>
+        </service>
+
         <!--
             ConnectionService that intercepts incoming calls.
             - exported="true" is required: Telecom binds to this service from outside the app.
