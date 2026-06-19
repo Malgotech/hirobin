@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.telecom.PhoneAccount
 import android.telecom.PhoneAccountHandle
 import android.telecom.TelecomManager
+import android.util.Log
 import com.yourcompany.hirobin.services.CALL_CHANNEL_ID
 import com.yourcompany.hirobin.services.CallAudioManager
 import com.yourcompany.hirobin.services.CallConnectionService
@@ -95,14 +96,25 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun registerPhoneAccount() {
-        val telecomManager = getSystemService(TELECOM_SERVICE) as TelecomManager
-        val handle = PhoneAccountHandle(
-            ComponentName(this, CallConnectionService::class.java),
-            "HiRobin"
-        )
-        val account = PhoneAccount.builder(handle, "HiRobin AI Assistant")
-            .setCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER)
-            .build()
-        telecomManager.registerPhoneAccount(account)
+        try {
+            val telecomManager = getSystemService(TELECOM_SERVICE) as TelecomManager
+            val serviceComponent = ComponentName(this, CallConnectionService::class.java)
+
+            // Remove any stale self-managed account left over from a previous install
+            // so Telecom doesn't see two conflicting registrations for the same service.
+            for (handle in telecomManager.selfManagedPhoneAccounts) {
+                if (handle.componentName == serviceComponent) {
+                    telecomManager.unregisterPhoneAccount(handle)
+                }
+            }
+
+            val handle = PhoneAccountHandle(serviceComponent, "HiRobin")
+            val account = PhoneAccount.builder(handle, "HiRobin AI Assistant")
+                .setCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER)
+                .build()
+            telecomManager.registerPhoneAccount(account)
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to register phone account", e)
+        }
     }
 }
