@@ -268,6 +268,7 @@ object CallAudioManager {
             .setTransferMode(AudioTrack.MODE_STREAM)
             .setBufferSizeInBytes(minBuf * 4)
             .build()
+        ttsTrack?.setVolume(1.0f)
         ttsTrack?.play()
         Log.d(TAG, "AudioTrack ready — sampleRate=$TTS_SAMPLE_RATE Hz, state=${ttsTrack?.state}")
     }
