@@ -57,7 +57,7 @@ object CallAudioManager {
         .build()
 
     private var webSocket: WebSocket? = null
-    private var audioTrack: AudioTrack? = null
+    private var ttsTrack: AudioTrack? = null
 
     // -------------------------------------------------------------------------
     // Public API
@@ -77,6 +77,7 @@ object CallAudioManager {
         this.audioManager = audioManager
 
         requestAudioFocus(audioManager)
+        initTtsTrack()
         connectWebSocket()
         startCapture()
     }
@@ -88,7 +89,10 @@ object CallAudioManager {
         webSocket?.close(1000, "Call ended")
         webSocket = null
 
-        releaseAudioTrack()
+        ttsTrack?.stop()
+        ttsTrack?.release()
+        ttsTrack = null
+
         abandonAudioFocus()
         activeConnection = null
     }
@@ -106,10 +110,11 @@ object CallAudioManager {
                 CallEventBus.onAudioStateChanged("ws_connected", null)
             }
 
-            // Binary frame = TTS PCM audio from the backend; play it on the earpiece.
+            // Binary frame = TTS PCM audio from the backend; write directly to AudioTrack.
             override fun onMessage(ws: WebSocket, bytes: ByteString) {
                 Log.d(TAG, "TTS audio chunk: ${bytes.size} bytes")
-                playTtsChunk(bytes.toByteArray())
+                val pcm = bytes.toByteArray()
+                ttsTrack?.write(pcm, 0, pcm.size)
             }
 
             // Text frame = JSON control message from the backend.
@@ -239,42 +244,31 @@ object CallAudioManager {
     // TTS playback ← WebSocket binary frames
     // -------------------------------------------------------------------------
 
-    private fun playTtsChunk(pcm: ByteArray) {
-        val track = audioTrack ?: createAudioTrack()
-        // AudioTrack.write() is blocking and is called on OkHttp's reader thread,
-        // which is fine — it keeps backpressure natural and avoids an extra buffer.
-        track.write(pcm, 0, pcm.size)
-    }
-
-    private fun createAudioTrack(): AudioTrack {
+    private fun initTtsTrack() {
         val minBuf = AudioTrack.getMinBufferSize(
             TTS_SAMPLE_RATE,
             AudioFormat.CHANNEL_OUT_MONO,
             ENCODING
         )
-        val attrs = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+        ttsTrack = AudioTrack.Builder()
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build()
+            )
+            .setAudioFormat(
+                AudioFormat.Builder()
+                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                    .setSampleRate(TTS_SAMPLE_RATE)
+                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                    .build()
+            )
+            .setTransferMode(AudioTrack.MODE_STREAM)
+            .setBufferSizeInBytes(minBuf * 4)
             .build()
-        val format = AudioFormat.Builder()
-            .setSampleRate(TTS_SAMPLE_RATE)
-            .setEncoding(ENCODING)
-            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-            .build()
-        return AudioTrack(
-            attrs, format,
-            minBuf * 4,
-            AudioTrack.MODE_STREAM,
-            AudioManager.AUDIO_SESSION_ID_GENERATE
-        ).also {
-            it.play()
-            audioTrack = it
-        }
-    }
-
-    private fun releaseAudioTrack() {
-        audioTrack?.run { stop(); release() }
-        audioTrack = null
+        ttsTrack?.play()
+        Log.d(TAG, "AudioTrack ready — sampleRate=$TTS_SAMPLE_RATE Hz, state=${ttsTrack?.state}")
     }
 
     // -------------------------------------------------------------------------
