@@ -67,7 +67,10 @@ object CallAudioManager {
         wsBaseUrl = url
     }
 
-    fun startStreaming(connection: Connection, audioManager: AudioManager) {
+    // Called from HiRobinInCallService — no Connection object available there.
+    fun startStreaming(audioManager: AudioManager) = startStreaming(null, audioManager)
+
+    fun startStreaming(connection: Connection?, audioManager: AudioManager) {
         if (captureJob?.isActive == true) return
 
         activeConnection = connection

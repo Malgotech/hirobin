@@ -4,16 +4,10 @@ import android.app.Activity
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.role.RoleManager
-import android.content.ComponentName
 import android.os.Build
 import android.os.Bundle
-import android.telecom.PhoneAccount
-import android.telecom.PhoneAccountHandle
-import android.telecom.TelecomManager
-import android.util.Log
 import com.yourcompany.hirobin.services.CALL_CHANNEL_ID
 import com.yourcompany.hirobin.services.CallAudioManager
-import com.yourcompany.hirobin.services.CallConnectionService
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -54,18 +48,14 @@ class MainActivity : FlutterActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_ROLE_DIALER && resultCode == Activity.RESULT_OK) {
-            // User granted ROLE_DIALER — re-register the phone account now that
-            // we hold the role, so Telecom recognises us as the default dialer.
-            registerPhoneAccount()
-        }
+        // Nothing extra to do after ROLE_DIALER is granted — HiRobinInCallService
+        // will start receiving calls automatically as the default dialer's InCallService.
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
         CallEventBus.setFlutterEngine(flutterEngine)
-        registerPhoneAccount()
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
@@ -95,26 +85,4 @@ class MainActivity : FlutterActivity() {
             }
     }
 
-    private fun registerPhoneAccount() {
-        try {
-            val telecomManager = getSystemService(TELECOM_SERVICE) as TelecomManager
-            val serviceComponent = ComponentName(this, CallConnectionService::class.java)
-
-            // Remove any stale self-managed account left over from a previous install
-            // so Telecom doesn't see two conflicting registrations for the same service.
-            for (handle in telecomManager.selfManagedPhoneAccounts) {
-                if (handle.componentName == serviceComponent) {
-                    telecomManager.unregisterPhoneAccount(handle)
-                }
-            }
-
-            val handle = PhoneAccountHandle(serviceComponent, "HiRobin")
-            val account = PhoneAccount.builder(handle, "HiRobin AI Assistant")
-                .setCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER)
-                .build()
-            telecomManager.registerPhoneAccount(account)
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Failed to register phone account", e)
-        }
-    }
 }
