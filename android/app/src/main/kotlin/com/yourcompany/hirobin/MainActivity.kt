@@ -65,6 +65,12 @@ class MainActivity : FlutterActivity() {
                         val url = call.arguments as? String
                         if (url != null) {
                             CallAudioManager.setBackendUrl(url)
+                            // Persist so HiRobinInCallService can read it even if
+                            // MainActivity hasn't run in the current process session.
+                            getSharedPreferences("hirobin_prefs", MODE_PRIVATE)
+                                .edit()
+                                .putString("backend_url", url)
+                                .apply()
                             result.success(null)
                         } else {
                             result.error("INVALID_ARGS", "Expected String url", null)

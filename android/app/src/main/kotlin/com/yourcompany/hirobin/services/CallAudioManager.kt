@@ -176,7 +176,7 @@ object CallAudioManager {
         val bufferSize = maxOf(minBuf, chunkSize * 4)
 
         val recorder = AudioRecord(
-            MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+            MediaRecorder.AudioSource.VOICE_CALL,  // captures both sides of a cellular call
             CAPTURE_SAMPLE_RATE,
             CHANNEL_IN,
             ENCODING,

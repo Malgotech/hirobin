@@ -28,6 +28,11 @@ class HiRobinInCallService : InCallService() {
         CallEventBus.onIncomingCall(caller)
         showCallNotification(caller)
 
+        // Sync backend URL from SharedPreferences in case MainActivity hasn't run yet
+        // in this process session (InCallService can be bound before the app is opened).
+        val prefs = getSharedPreferences("hirobin_prefs", MODE_PRIVATE)
+        prefs.getString("backend_url", null)?.let { CallAudioManager.setBackendUrl(it) }
+
         // Auto-answer after 1500 ms — gives Telecom time to complete call setup.
         handler.postDelayed({
             if (call.state == Call.STATE_RINGING || call.state == Call.STATE_NEW) {
