@@ -13,17 +13,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _saving = false;
 
-  // Context fields sent to the AI via updateContext
+  // Identity
   final _nameController = TextEditingController();
-  final _roleController = TextEditingController();
   final _languageController = TextEditingController();
+
+  // Delivery address
+  final _flatNumberController = TextEditingController();
+  final _buildingNameController = TextEditingController();
+  final _landmarkController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _entryCodeController = TextEditingController();
+
+  // Extra
   final _notesController = TextEditingController();
 
   @override
   void dispose() {
     _nameController.dispose();
-    _roleController.dispose();
     _languageController.dispose();
+    _flatNumberController.dispose();
+    _buildingNameController.dispose();
+    _landmarkController.dispose();
+    _addressController.dispose();
+    _entryCodeController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -32,21 +44,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
 
-    final context = {
-      'name': _nameController.text.trim(),
-      'role': _roleController.text.trim(),
-      'language': _languageController.text.trim(),
-      'notes': _notesController.text.trim(),
+    final ctx = {
+      'name':         _nameController.text.trim(),
+      'language':     _languageController.text.trim(),
+      'flatNumber':   _flatNumberController.text.trim(),
+      'buildingName': _buildingNameController.text.trim(),
+      'landmark':     _landmarkController.text.trim(),
+      'address':      _addressController.text.trim(),
+      'entryCode':    _entryCodeController.text.trim(),
+      'notes':        _notesController.text.trim(),
     }..removeWhere((_, v) => v.isEmpty);
 
-    final ok = await _channel.updateContext(context);
+    final ok = await _channel.updateContext(ctx);
 
     if (!mounted) return;
     setState(() => _saving = false);
 
     ScaffoldMessenger.of(this.context).showSnackBar(
       SnackBar(
-        content: Text(ok ? 'Context saved.' : 'Failed to save context.'),
+        content: Text(ok ? 'Settings saved.' : 'Failed to save settings.'),
         backgroundColor: ok
             ? Theme.of(this.context).colorScheme.primary
             : Theme.of(this.context).colorScheme.error,
@@ -59,46 +75,88 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-      ),
+      appBar: AppBar(title: const Text('Settings')),
       body: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            // ── Identity ──────────────────────────────────────────────────
             _SectionHeader('Your Identity'),
             const SizedBox(height: 8),
             _Field(
               controller: _nameController,
-              label: 'Name',
-              hint: 'e.g. Sarah',
+              label: 'Your name',
+              hint: 'e.g. Rahul',
               icon: Icons.person_outline,
             ),
             const SizedBox(height: 12),
             _Field(
-              controller: _roleController,
-              label: 'Role / Occupation',
-              hint: 'e.g. Product Manager',
-              icon: Icons.work_outline,
-            ),
-            const SizedBox(height: 24),
-            _SectionHeader('AI Preferences'),
-            const SizedBox(height: 8),
-            _Field(
               controller: _languageController,
               label: 'Preferred language',
-              hint: 'e.g. English',
+              hint: 'e.g. Hindi, Telugu, English',
               icon: Icons.language,
+            ),
+
+            // ── Delivery address ──────────────────────────────────────────
+            const SizedBox(height: 24),
+            _SectionHeader('Delivery Address'),
+            const _SectionSubtitle(
+              'HiRobin gives this to delivery riders automatically.',
+            ),
+            const SizedBox(height: 8),
+            _Field(
+              controller: _flatNumberController,
+              label: 'Flat / unit number',
+              hint: 'e.g. 4B, 302',
+              icon: Icons.door_front_door_outlined,
             ),
             const SizedBox(height: 12),
             _Field(
+              controller: _buildingNameController,
+              label: 'Building / society name',
+              hint: 'e.g. Prestige Oak, Green Valley Apts',
+              icon: Icons.apartment_outlined,
+            ),
+            const SizedBox(height: 12),
+            _Field(
+              controller: _landmarkController,
+              label: 'Landmark',
+              hint: 'e.g. next to SBI ATM, opp. Big Bazaar',
+              icon: Icons.place_outlined,
+            ),
+            const SizedBox(height: 12),
+            _Field(
+              controller: _addressController,
+              label: 'Full address (optional)',
+              hint: 'Street, area, city, PIN',
+              icon: Icons.map_outlined,
+              maxLines: 2,
+            ),
+            const SizedBox(height: 12),
+            _Field(
+              controller: _entryCodeController,
+              label: 'Gate / entry code',
+              hint: 'e.g. 1234#  (leave blank if none)',
+              icon: Icons.lock_outline,
+            ),
+
+            // ── Extra instructions ────────────────────────────────────────
+            const SizedBox(height: 24),
+            _SectionHeader('Extra Instructions'),
+            const _SectionSubtitle(
+              'Anything else HiRobin should know — e.g. "Do not accept cold-calls", '
+              '"Always take messages from Dr. Mehta\'s clinic".',
+            ),
+            const SizedBox(height: 8),
+            _Field(
               controller: _notesController,
-              label: 'Additional context',
-              hint: 'Anything the AI should know about your calls…',
+              label: 'Notes for HiRobin',
+              hint: 'Free-form instructions…',
               icon: Icons.notes,
               maxLines: 4,
             ),
+
             const SizedBox(height: 32),
             FilledButton.icon(
               onPressed: _saving ? null : _save,
@@ -111,6 +169,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   : const Icon(Icons.check),
               label: Text(_saving ? 'Saving…' : 'Save'),
             ),
+            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -118,11 +177,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-// ---------------------------------------------------------------------------
+// ── Shared widgets ────────────────────────────────────────────────────────────
 
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader(this.title);
-
   final String title;
 
   @override
@@ -133,6 +191,24 @@ class _SectionHeader extends StatelessWidget {
             color: Theme.of(context).colorScheme.primary,
             letterSpacing: 0.5,
           ),
+    );
+  }
+}
+
+class _SectionSubtitle extends StatelessWidget {
+  const _SectionSubtitle(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 2, bottom: 4),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+      ),
     );
   }
 }
