@@ -1,6 +1,10 @@
 package com.yourcompany.hirobin
 
+import android.app.Activity
+import android.app.role.RoleManager
 import android.content.ComponentName
+import android.os.Build
+import android.os.Bundle
 import android.telecom.PhoneAccount
 import android.telecom.PhoneAccountHandle
 import android.telecom.TelecomManager
@@ -13,6 +17,31 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
 
     private val CHANNEL = "com.yourcompany.hirobin/calls"
+    private val REQUEST_ROLE_DIALER = 1
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        requestDialerRoleIfNeeded()
+    }
+
+    private fun requestDialerRoleIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roleManager = getSystemService(RoleManager::class.java)
+            if (!roleManager.isRoleHeld(RoleManager.ROLE_DIALER)) {
+                val intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_DIALER)
+                startActivityForResult(intent, REQUEST_ROLE_DIALER)
+            }
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_ROLE_DIALER && resultCode == Activity.RESULT_OK) {
+            // User granted ROLE_DIALER — re-register the phone account now that
+            // we hold the role, so Telecom recognises us as the default dialer.
+            registerPhoneAccount()
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
