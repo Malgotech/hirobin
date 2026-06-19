@@ -33,7 +33,7 @@ import kotlin.math.sqrt
 object CallAudioManager {
 
     private const val TAG = "CallAudioManager"
-    private var wsBaseUrl = "ws://10.0.2.2:3000"
+    private var wsBaseUrl = "ws://0.tcp.in.ngrok.io:27365"
 
     // Capture format — 16 kHz mono PCM-16 matches common STT model input requirements.
     private const val CAPTURE_SAMPLE_RATE = 16_000
