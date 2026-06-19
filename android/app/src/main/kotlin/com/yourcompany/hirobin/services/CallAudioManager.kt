@@ -175,51 +175,23 @@ object CallAudioManager {
         val chunkSize = CAPTURE_SAMPLE_RATE * 2 * CHUNK_MS / 1000  // bytes: 16-bit = 2 bytes/sample
         val bufferSize = maxOf(minBuf, chunkSize * 4)
 
-        // Try audio sources in preference order:
-        //   VOICE_CALL          — both sides of a cellular call; requires CAPTURE_AUDIO_OUTPUT
-        //                         (privileged), so will fail on most non-rooted devices
-        //   VOICE_COMMUNICATION — local mic in VoIP mode; available to all apps; may give
-        //                         silence during cellular calls but is the safest fallback
-        //   MIC                 — raw mic; always available
-        val sourceCandidates = buildList {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                add(MediaRecorder.AudioSource.VOICE_CALL)
-            }
-            add(MediaRecorder.AudioSource.VOICE_COMMUNICATION)
-            add(MediaRecorder.AudioSource.MIC)
-        }
-
-        var recorder: AudioRecord? = null
-        var usedSource = -1
-        for (source in sourceCandidates) {
-            val candidate = try {
-                AudioRecord(source, CAPTURE_SAMPLE_RATE, CHANNEL_IN, ENCODING, bufferSize)
-            } catch (e: Exception) {
-                Log.w(TAG, "AudioSource $source threw ${e.javaClass.simpleName}, skipping")
-                continue
-            }
-            if (candidate.state == AudioRecord.STATE_INITIALIZED) {
-                recorder = candidate
-                usedSource = source
-                break
-            } else {
-                Log.w(TAG, "AudioSource $source: state=${candidate.state} (not initialized), skipping")
-                candidate.release()
-            }
-        }
-
-        if (recorder == null) {
-            CallEventBus.onAudioStateChanged("error", "AudioRecord failed to initialise with any source")
+        // MIC captures the acoustic loopback: HiRobinInCallService routes the caller's
+        // voice to the speakerphone so the microphone picks up both sides of the call.
+        val recorder = try {
+            AudioRecord(MediaRecorder.AudioSource.MIC, CAPTURE_SAMPLE_RATE, CHANNEL_IN, ENCODING, bufferSize)
+        } catch (e: Exception) {
+            Log.e(TAG, "AudioRecord(MIC) threw ${e.javaClass.simpleName}", e)
+            CallEventBus.onAudioStateChanged("error", "AudioRecord init threw: ${e.message}")
             return
         }
 
-        val sourceName = when (usedSource) {
-            MediaRecorder.AudioSource.VOICE_CALL -> "VOICE_CALL"
-            MediaRecorder.AudioSource.VOICE_COMMUNICATION -> "VOICE_COMMUNICATION"
-            MediaRecorder.AudioSource.MIC -> "MIC"
-            else -> "$usedSource"
+        if (recorder.state != AudioRecord.STATE_INITIALIZED) {
+            recorder.release()
+            CallEventBus.onAudioStateChanged("error", "AudioRecord(MIC) failed to initialise — state=${recorder.state}")
+            return
         }
-        Log.d(TAG, "AudioRecord ready — source=$sourceName, sampleRate=$CAPTURE_SAMPLE_RATE Hz, " +
+
+        Log.d(TAG, "AudioRecord ready — source=MIC, sampleRate=$CAPTURE_SAMPLE_RATE Hz, " +
                 "encoding=${if (ENCODING == AudioFormat.ENCODING_PCM_16BIT) "PCM_16BIT" else ENCODING}, " +
                 "chunkSize=$chunkSize bytes, state=${recorder.state}")
 

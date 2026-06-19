@@ -37,7 +37,13 @@ class HiRobinInCallService : InCallService() {
         handler.postDelayed({
             if (call.state == Call.STATE_RINGING || call.state == Call.STATE_NEW) {
                 call.answer(VideoProfile.STATE_AUDIO_ONLY)
+
+                // Route the caller's voice to the speaker so the MIC can capture
+                // both sides of the call via acoustic loopback.
                 val am = getSystemService(AudioManager::class.java)
+                am?.mode = AudioManager.MODE_IN_COMMUNICATION
+                am?.isSpeakerphoneOn = true
+
                 am?.let { CallAudioManager.startStreaming(it) }
             }
         }, 1500)
