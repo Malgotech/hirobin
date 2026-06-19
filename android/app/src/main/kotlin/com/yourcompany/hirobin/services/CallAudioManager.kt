@@ -189,17 +189,28 @@ object CallAudioManager {
             return
         }
 
+        Log.d(TAG, "AudioRecord config — sampleRate=$CAPTURE_SAMPLE_RATE Hz, " +
+                "encoding=${if (ENCODING == AudioFormat.ENCODING_PCM_16BIT) "PCM_16BIT" else ENCODING}, " +
+                "chunkSize=$chunkSize bytes")
+
         audioRecord = recorder
         recorder.startRecording()
         CallEventBus.onAudioStateChanged("started", null)
 
         captureJob = scope.launch {
             val buffer = ByteArray(chunkSize)
+            var firstChunkLogged = false
             try {
                 while (isActive) {
                     val bytesRead = recorder.read(buffer, 0, buffer.size)
                     if (bytesRead > 0) {
                         val chunk = buffer.copyOf(bytesRead)
+
+                        if (!firstChunkLogged) {
+                            val hex = chunk.take(32).joinToString(" ") { "%02X".format(it) }
+                            Log.d(TAG, "First PCM chunk — $bytesRead bytes, first 32 bytes (hex): $hex")
+                            firstChunkLogged = true
+                        }
 
                         // Send raw PCM to the backend as a binary WebSocket frame.
                         webSocket?.send(chunk.toByteString())
